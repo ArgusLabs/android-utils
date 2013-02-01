@@ -1,0 +1,48 @@
+#!/usr/bin/python
+
+# Convert a value in certain density (xhdpi, hdpi, mdpi, ldpi) to all other densities.
+# Run densityconv -h for more info.
+
+import sys
+import argparse
+
+
+def parse_args(args):
+    parser = argparse.ArgumentParser(description='Convert a value in a certain density to all other densities')
+
+    parser.add_argument('density', help='density to convert from, must be x, h, m or l')
+    parser.add_argument('value', help='value to convert, must be an integer')
+
+    return parser.parse_args(sys.argv[1:])
+
+
+def convert(args):
+    if (args.density not in ['x', 'h', 'm', 'l']):
+        print 'density must be x, h, m or l'
+        sys.exit(1)
+
+    try:
+        value = int(args.value)
+    except ValueError:
+        print 'value must be an integer'
+        sys.exit(1)
+
+    # first convert to baseline (mdpi)
+    if args.density == 'l':
+        value *= (float(4) / 3)
+    elif args.density == 'h':
+        value *= (float(2) / 3)
+    elif args.density == 'x':
+        value /= float(2)
+
+    # use baseline to calculate all dimensions
+    ldpi = value / (float(4) / 3)
+    mdpi = value
+    hdpi = value * 1.5
+    xhdpi = value * 2
+
+    print 'l %.2f\nm %.2f\nh %.2f\nx %.2f' % (ldpi, mdpi, hdpi, xhdpi)
+
+
+if __name__ == '__main__':
+    convert(parse_args(sys.argv))
