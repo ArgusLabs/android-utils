@@ -1,0 +1,90 @@
+#!/usr/bin/python
+
+# Converts ids from an Android layout XML file to findViewById-code you can simply drop in your source.
+# Run grabids -h for more info.
+
+import sys
+import argparse
+import xml.etree.ElementTree as etree
+
+ANDROID_NAMESPACE = "http://schemas.android.com/apk/res/android"
+
+
+def parse_args(args):
+    parser = argparse.ArgumentParser(description='Convert ids from an Android layout XML file to findViewById-code you can simply drop in your source.')
+
+    parser.add_argument('file', help='full path to the Android layout file')
+    parser.add_argument('-f', '--split-fields', help='split declaration and initialization, so the variables can be used as fields', action="store_true")
+    parser.add_argument('-v', '--view', help='call findViewById on VIEW', type=str, default='')
+
+    return parser.parse_args(sys.argv[1:])
+
+
+def main(args):
+    tree = etree.parse(args.file)
+    views = parse_views(tree)
+
+    inflate_from = ''
+    if args.view:
+        inflate_from = args.view + '.'
+
+    if (args.split_fields):
+        print_fields(views)
+        print ''
+        print_initializations(views, inflate_from)
+    else:
+        print_all(views, inflate_from)
+
+
+def parse_views(elementtree):
+    '''
+    Parse Android views from the given element tree.
+    Returns a triple with the resource id, the type of the view (TextView, ImageView, ...)
+    and an appropriate variable name.
+    '''
+    views = []
+
+    for element in elementtree.getiterator():
+        res_id = find_id(element)
+        if res_id is None:
+            continue
+
+        java_type = element.tag
+        var_name = res_id.title().replace('_', '')
+        var_name = var_name[:1].lower() + var_name[1:]
+
+        views.append((res_id, java_type, var_name))
+
+    return views
+
+
+def find_id(element):
+    '''
+    Find the Android id from the given XML element and sanitize it.
+    '''
+    try:
+        res_id = element.attrib['{%s}%s' % (ANDROID_NAMESPACE, 'id')]
+        res_id = res_id.replace("@+id/", '').replace("@id/", "")
+    except KeyError:
+        res_id = None
+
+    return res_id
+
+
+def print_fields(views):
+    for view in views:
+        print 'private %s %s;' % (view[1], view[2])
+
+
+def print_initializations(views, inflate_from):
+    for view in views:
+        print '%s = (%s) %sfindViewById(R.id.%s);' % (view[2], view[1], inflate_from, view[0])
+
+
+def print_all(views, inflate_from):
+    for view in views:
+        print '%s %s = (%s) %sfindViewById(R.id.%s);' % (view[1], view[2], view[1], inflate_from, view[0])
+
+if __name__ == '__main__':
+    args = parse_args(sys.argv[1:])
+    main(args)
